@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '239442392621-adsev5o9nhsd7u0g652s2tagirlvlddb.apps.googleusercontent.com'
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets.readonly'
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events'
 const FOLDER_NAME = 'Acervo de Festas'
 const SESSION_KEY = 'acervo_session_v2'
 const SHEETS_ID = '1Q9Q60JEaWSNxGlcmE8doA724Cxc0Jl90nvRH-kXbYeU'
@@ -10,25 +10,25 @@ const SHEETS_ID = '1Q9Q60JEaWSNxGlcmE8doA724Cxc0Jl90nvRH-kXbYeU'
 // ── Verificação de Acesso via Google Sheets ───────────────────────────────────
 const verificarAcesso = async (email, token) => {
   try {
-    // Usa o token OAuth do usuário para ler a planilha — não precisa de planilha pública
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Página1`
+    // Usa Drive API (já autorizada) para exportar a planilha como CSV
+    const url = `https://www.googleapis.com/drive/v3/files/${SHEETS_ID}/export?mimeType=text/csv`
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (!res.ok) {
-      console.error('Sheets API error:', res.status)
+      console.error('Drive export error:', res.status)
       return false
     }
-    const data = await res.json()
-    const rows = data.values || []
-    if (rows.length < 2) return false
-    const headers = rows[0].map(h => h.trim().toLowerCase())
+    const text = await res.text()
+    const lines = text.split('\n').filter(l => l.trim())
+    if (lines.length < 2) return false
+    const headers = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
     const iEmail = headers.indexOf('email')
     const iStatus = headers.indexOf('status')
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i]
-      const rowEmail = (row[iEmail] || '').trim().toLowerCase()
-      const rowStatus = (row[iStatus] || '').trim().toLowerCase()
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
+      const rowEmail = (cols[iEmail] || '').trim()
+      const rowStatus = (cols[iStatus] || '').trim()
       if (rowEmail === email.toLowerCase()) return rowStatus === 'ativo'
     }
     return false
