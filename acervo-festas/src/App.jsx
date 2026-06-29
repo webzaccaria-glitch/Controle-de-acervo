@@ -2,25 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '239442392621-adsev5o9nhsd7u0g652s2tagirlvlddb.apps.googleusercontent.com'
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events'
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets.readonly'
 const FOLDER_NAME = 'Acervo de Festas'
 const SESSION_KEY = 'acervo_session_v2'
 
 
 // ── Verificação de Acesso via Google Sheets ───────────────────────────────────
-const verificarAcesso = async (email) => {
+const verificarAcesso = async (email, token) => {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=P%C3%A1gina1`
-    const res = await fetch(url)
-    const text = await res.text()
-    const lines = text.split('\n').filter(l => l.trim())
-    if (lines.length < 2) return false
-    const headers = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
+    // Usa o token OAuth do usuário para ler a planilha — não precisa de planilha pública
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Página1`
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!res.ok) {
+      console.error('Sheets API error:', res.status)
+      return false
+    }
+    const data = await res.json()
+    const rows = data.values || []
+    if (rows.length < 2) return false
+    const headers = rows[0].map(h => h.trim().toLowerCase())
     const iEmail = headers.indexOf('email')
     const iStatus = headers.indexOf('status')
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
-      if (cols[iEmail] === email.toLowerCase()) return cols[iStatus] === 'ativo'
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i]
+      const rowEmail = (row[iEmail] || '').trim().toLowerCase()
+      const rowStatus = (row[iStatus] || '').trim().toLowerCase()
+      if (rowEmail === email.toLowerCase()) return rowStatus === 'ativo'
     }
     return false
   } catch (e) {
@@ -467,7 +476,7 @@ export default function App() {
 
       // ── Verificar autorização na planilha ──
       setLoadingMsg('Verificando autorização de acesso…')
-      const autorizado = await verificarAcesso(userInfo.email)
+      const autorizado = await verificarAcesso(userInfo.email, tk)
       if (!autorizado) {
         setLoading(false)
         setAcessoNegado(true)
