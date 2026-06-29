@@ -1044,15 +1044,22 @@ function ItemFormModal({form,set,editing,saving,categories,onSave,onClose}) {
             </div>
           )}
 
-          {/* Adicionar novo modelo */}
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          {/* Adicionar novo modelo — campo em destaque */}
+          <div style={{background:'#13121f',border:'2px solid #d4a84350',borderRadius:12,padding:14,marginTop:subitems.length>0?8:0}}>
+            <div style={{fontSize:10,color:'#d4a843',fontWeight:700,letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>✏️ Adicionar modelo</div>
             <input value={newModel} onChange={e=>setNewModel(e.target.value)}
               onKeyDown={e=>e.key==='Enter'&&addSubitem()}
-              placeholder="Nome do modelo (ex: Branca de Neve)"
-              style={{flex:1}}/>
-            <input type="number" min="1" value={newQty} onChange={e=>setNewQty(e.target.value)}
-              style={{width:64,textAlign:'center'}} placeholder="Qtd"/>
-            <button className="btn btn-gold" onClick={addSubitem} style={{whiteSpace:'nowrap',padding:'9px 14px',fontSize:12}}>+ Adicionar</button>
+              placeholder="Nome do modelo  (ex: Branca de Neve, Gratidão…)"
+              style={{width:'100%',marginBottom:10,fontSize:15,fontWeight:600,border:'2px solid #d4a843',background:'#0f0e17',padding:'12px 14px',borderRadius:10,color:'#fff'}}/>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:10,padding:'8px 14px',flexShrink:0}}>
+                <span style={{fontSize:11,color:'#6a6080'}}>Qtd:</span>
+                <button type="button" onClick={()=>setNewQty(q=>Math.max(1,Number(q)-1))} style={{width:26,height:26,background:'#2e2b4a',border:'none',borderRadius:6,color:'#e8dfc8',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>−</button>
+                <span style={{minWidth:24,textAlign:'center',fontSize:16,fontWeight:800,color:'#d4a843'}}>{newQty}</span>
+                <button type="button" onClick={()=>setNewQty(q=>Number(q)+1)} style={{width:26,height:26,background:'#2e2b4a',border:'none',borderRadius:6,color:'#e8dfc8',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>+</button>
+              </div>
+              <button className="btn btn-gold" onClick={addSubitem} style={{flex:1,justifyContent:'center',fontSize:14,padding:'11px 16px'}}>+ Adicionar Modelo</button>
+            </div>
           </div>
 
           {subitems.length===0&&(
@@ -1154,12 +1161,12 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
   const [saving,setSaving]=useState(false)
   const blank={tenantName:'',cpf:'',address:'',phone:'',rentalDate:'',expectedReturnDate:'',actualReturnDate:'',dailyRate:'50',amountPaid:'',exitBy:'',notes:'',items:[],status:'ativa',totalOrder:0}
   const [form,setForm]=useState(blank)
-  const [sel,setSel]=useState({itemId:'',qty:1})
+  const [sel,setSel]=useState({itemId:'',qty:1,modelId:''})
   const [selCat,setSelCat]=useState('')
   const [selSub,setSelSub]=useState('')
   const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
-  const openNew=()=>{setForm({...blank,rentalDate:new Date().toISOString().slice(0,10)});setEditingId(null);setSelCat('');setSelSub('');setSel({itemId:'',qty:1});setShowForm(true)}
-  const openEdit=(r)=>{setForm({...r});setEditingId(r.id);setSelCat('');setSelSub('');setSel({itemId:'',qty:1});setShowForm(true)}
+  const openNew=()=>{setForm({...blank,rentalDate:new Date().toISOString().slice(0,10)});setEditingId(null);setSelCat('');setSelSub('');setSel({itemId:'',qty:1,modelId:''});setShowForm(true)}
+  const openEdit=(r)=>{setForm({...r});setEditingId(r.id);setSelCat('');setSelSub('');setSel({itemId:'',qty:1,modelId:''});setShowForm(true)}
   const close=()=>{setShowForm(false);setEditingId(null)}
   const formTotal=calcTotal(form.items),formPaid=Number(form.amountPaid||0),formDebito=Math.max(0,formTotal-formPaid)
   const autoDailyRate=()=>{
@@ -1171,13 +1178,20 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
   const addItem=()=>{
     if(!sel.itemId)return
     const inv=inventory.find(i=>i.id===sel.itemId);if(!inv)return
-    const qty=Math.max(1,Math.min(Number(sel.qty)||1,inv.quantity)),unitPrice=Number(inv.rentalPrice||0)
-    const exists=form.items.find(i=>i.itemId===sel.itemId)
-    if(exists)setForm(p=>({...p,items:p.items.map(i=>i.itemId===sel.itemId?{...i,qty:Math.min(i.qty+qty,inv.quantity),unitPrice}:i)}))
-    else setForm(p=>({...p,items:[...p.items,{itemId:sel.itemId,qty,unitPrice}]}))
-    setSel({itemId:'',qty:1})
+    const subitems=inv.subitems||[]
+    const totalDisp=subitems.length>0?subitems.reduce((a,s)=>a+Number(s.qty||0),0):Number(inv.quantity||0)
+    // Se tem subitens, precisa selecionar modelo
+    if(subitems.length>0&&!sel.modelId)return alert('Selecione o modelo do item.')
+    const qty=Math.max(1,Math.min(Number(sel.qty)||1,totalDisp))
+    const unitPrice=Number(inv.rentalPrice||0)
+    const modelName=subitems.length>0?(subitems.find(s=>s.id===sel.modelId)||{model:''}).model:''
+    const cartKey=sel.modelId?`${sel.itemId}_${sel.modelId}`:sel.itemId
+    const exists=form.items.find(i=>i.cartKey===cartKey)
+    if(exists)setForm(p=>({...p,items:p.items.map(i=>i.cartKey===cartKey?{...i,qty:Math.min(i.qty+qty,totalDisp)}:i)}))
+    else setForm(p=>({...p,items:[...p.items,{cartKey,itemId:sel.itemId,modelId:sel.modelId||'',modelName,qty,unitPrice}]}))
+    setSel({itemId:'',qty:1,modelId:''})
   }
-  const removeItem=(id)=>setForm(p=>({...p,items:p.items.filter(i=>i.itemId!==id)}))
+  const removeItem=(cartKey)=>setForm(p=>({...p,items:p.items.filter(i=>i.cartKey!==cartKey&&i.itemId!==cartKey)}))
   const updateCartItem=(id,f,v)=>setForm(p=>({...p,items:p.items.map(i=>{
     if(i.itemId!==id)return i
     const inv=inventory.find(x=>x.id===id)
@@ -1497,30 +1511,44 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
               {form.items.length>0&&<button className="btn btn-blue" style={{fontSize:11,padding:'4px 10px'}} onClick={syncPrices}>🔄 Sincronizar Preços</button>}
             </div>
             {inventory.length===0?<div style={{background:'#1a1929',border:'1px solid #2e2b4a',borderRadius:8,padding:14,color:'#6a6080',fontSize:13,marginBottom:12}}>⚠ Nenhum item no acervo.</div>:(()=>{
-              const catSubs=(subcategories&&selCat)?subcategories[selCat]||[]:[]
-              const filteredItems=selCat?inventory.filter(i=>{if(i.mainCategory!==selCat)return false;if(selSub)return(i.subCategory||'')===selSub;return true}):[]
+              const filteredItems=selCat?inventory.filter(i=>i.mainCategory===selCat):[]
+              const selItem=inventory.find(i=>i.id===sel.itemId)
+              const itemSubitems=selItem?(selItem.subitems||[]):[]
+              const totalDisp=selItem?(itemSubitems.length>0?itemSubitems.reduce((a,s)=>a+Number(s.qty||0),0):Number(selItem.quantity||0)):0
               return(
                 <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                    <select value={selCat} onChange={e=>{setSelCat(e.target.value);setSelSub('');setSel(p=>({...p,itemId:''}))}} style={{flex:1,minWidth:160}}>
-                      <option value="">1. Selecione a categoria</option>
-                      {useCats.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
-                    </select>
-                    {selCat&&catSubs.length>0&&(
-                      <select value={selSub} onChange={e=>{setSelSub(e.target.value);setSel(p=>({...p,itemId:''}))}} style={{flex:1,minWidth:160}}>
-                        <option value="">2. Sub-categoria (opcional)</option>
-                        {catSubs.map(s=><option key={s} value={s}>{s}</option>)}
-                      </select>
-                    )}
-                  </div>
+                  {/* Passo 1: Categoria */}
+                  <select value={selCat} onChange={e=>{setSelCat(e.target.value);setSel({itemId:'',qty:1,modelId:''})}} style={{width:'100%'}}>
+                    <option value="">① Selecione a categoria</option>
+                    {useCats.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
+                  </select>
+                  {/* Passo 2: Item */}
                   {selCat&&(
-                    <div style={{display:'flex',gap:8}}>
-                      <select value={sel.itemId} onChange={e=>setSel(p=>({...p,itemId:e.target.value}))} style={{flex:1}}>
-                        <option value="">{catSubs.length>0?'3.':'2.'} Selecione o item</option>
-                        {filteredItems.length===0?<option disabled>Nenhum item nesta seleção</option>:filteredItems.map(i=><option key={i.id} value={i.id}>{i.name} — {i.quantity} disp.{i.rentalPrice?` — ${R$(i.rentalPrice)}/un`:''}</option>)}
-                      </select>
-                      <input type="number" min="1" value={sel.qty} onChange={e=>setSel(p=>({...p,qty:e.target.value}))} style={{width:64}}/>
-                      <button className="btn btn-gold" onClick={addItem} style={{whiteSpace:'nowrap',padding:'8px 14px'}} disabled={!sel.itemId}>+ Add</button>
+                    <select value={sel.itemId} onChange={e=>setSel(p=>({...p,itemId:e.target.value,modelId:''}))} style={{width:'100%'}}>
+                      <option value="">② Selecione o item</option>
+                      {filteredItems.length===0?<option disabled>Nenhum item nesta categoria</option>:filteredItems.map(i=>{
+                        const tot=(i.subitems||[]).length>0?(i.subitems||[]).reduce((a,s)=>a+Number(s.qty||0),0):Number(i.quantity||0)
+                        return <option key={i.id} value={i.id}>{i.name} — {tot} disp.{i.rentalPrice?` — ${R$(i.rentalPrice)}/un`:''}</option>
+                      })}
+                    </select>
+                  )}
+                  {/* Passo 3: Modelo (se tiver subitens) */}
+                  {sel.itemId&&itemSubitems.length>0&&(
+                    <select value={sel.modelId} onChange={e=>setSel(p=>({...p,modelId:e.target.value}))} style={{width:'100%',border:'2px solid #d4a84360',background:'#1a1200'}}>
+                      <option value="">③ Selecione o modelo</option>
+                      {itemSubitems.map(s=><option key={s.id} value={s.id}>{s.model} — {s.qty} disp.</option>)}
+                    </select>
+                  )}
+                  {/* Passo 4: Quantidade + Add */}
+                  {sel.itemId&&(itemSubitems.length===0||sel.modelId)&&(
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <div style={{flex:1,fontSize:12,color:'#6a6080',background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:8,padding:'8px 12px'}}>
+                        <span style={{fontWeight:600,color:'#e8dfc8'}}>{selItem?.name}</span>
+                        {sel.modelId&&<span style={{color:'#d4a843'}}> — {itemSubitems.find(s=>s.id===sel.modelId)?.model}</span>}
+                        <span style={{color:'#4a4060'}}> ({totalDisp} disp.)</span>
+                      </div>
+                      <input type="number" min="1" max={totalDisp} value={sel.qty} onChange={e=>setSel(p=>({...p,qty:e.target.value}))} style={{width:64}}/>
+                      <button className="btn btn-gold" onClick={addItem} style={{whiteSpace:'nowrap',padding:'8px 14px'}}>+ Add</button>
                     </div>
                   )}
                 </div>
@@ -1536,12 +1564,15 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
                   const diverge=inv&&Number(inv.rentalPrice)!==Number(it.unitPrice)
                   const catInfo=useCats.find(c=>c.key===inv?.mainCategory)||{icon:'',label:inv?.mainCategory||''}
                   return(
-                    <div key={it.itemId} style={{display:'grid',gridTemplateColumns:'1fr 60px 100px 90px 32px',alignItems:'center',padding:'7px 12px',borderTop:'1px solid #1e1d35'}}>
-                      <div><div style={{color:'#e8dfc8',fontSize:13,fontWeight:600}}>{inv?inv.name:'?'}</div><div style={{fontSize:10,color:'#6a6080'}}>{catInfo.icon} {catInfo.label}{diverge&&<span style={{color:'#f0a020'}}> ⚠ diverge</span>}</div></div>
+                    <div key={it.cartKey||it.itemId} style={{display:'grid',gridTemplateColumns:'1fr 60px 100px 90px 32px',alignItems:'center',padding:'7px 12px',borderTop:'1px solid #1e1d35'}}>
+                      <div>
+                        <div style={{color:'#e8dfc8',fontSize:13,fontWeight:600}}>{inv?inv.name:'?'}{it.modelName&&<span style={{color:'#d4a843',fontSize:12}}> — {it.modelName}</span>}</div>
+                        <div style={{fontSize:10,color:'#6a6080'}}>{catInfo.icon} {catInfo.label}{diverge&&<span style={{color:'#f0a020'}}> ⚠ diverge</span>}</div>
+                      </div>
                       <div><input type="number" min="1" value={it.qty} onChange={e=>updateCartItem(it.itemId,'qty',e.target.value)} style={{width:50,textAlign:'center',padding:'4px',fontSize:13}}/></div>
                       <div><input type="number" min="0" step="0.01" value={it.unitPrice} onChange={e=>updateCartItem(it.itemId,'unitPrice',e.target.value)} style={{width:90,textAlign:'right',padding:'4px 6px',fontSize:13}}/></div>
                       <div style={{textAlign:'right',color:'#d4a843',fontWeight:700,fontSize:14}}>{R$(sub)}</div>
-                      <div><button className="btn btn-danger" style={{padding:'3px 6px',fontSize:11}} onClick={()=>removeItem(it.itemId)}>✕</button></div>
+                      <div><button className="btn btn-danger" style={{padding:'3px 6px',fontSize:11}} onClick={()=>removeItem(it.cartKey||it.itemId)}>✕</button></div>
                     </div>
                   )
                 })}
