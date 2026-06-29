@@ -8,30 +8,15 @@ const SESSION_KEY = 'acervo_session_v2'
 const SHEETS_ID = '1Q9Q60JEaWSNxGlcmE8doA724Cxc0Jl90nvRH-kXbYeU'
 
 // ── Verificação de Acesso via Google Sheets ───────────────────────────────────
-const verificarAcesso = async (email, token) => {
+const verificarAcesso = async (email) => {
   try {
-    // Usa Drive API (já autorizada) para exportar a planilha como CSV
-    const url = `https://www.googleapis.com/drive/v3/files/${SHEETS_ID}/export?mimeType=text/csv`
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    if (!res.ok) {
-      console.error('Drive export error:', res.status)
-      return false
-    }
-    const text = await res.text()
-    const lines = text.split('\n').filter(l => l.trim())
-    if (lines.length < 2) return false
-    const headers = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
-    const iEmail = headers.indexOf('email')
-    const iStatus = headers.indexOf('status')
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
-      const rowEmail = (cols[iEmail] || '').trim()
-      const rowStatus = (cols[iStatus] || '').trim()
-      if (rowEmail === email.toLowerCase()) return rowStatus === 'ativo'
-    }
-    return false
+    // Lê lista de emails autorizados do repositório GitHub (arquivo público)
+    const url = 'https://raw.githubusercontent.com/webzaccaria-glitch/Controle-de-acervo/main/acervo-festas/public/emails.json'
+    const res = await fetch(url + '?t=' + Date.now())
+    if (!res.ok) { console.error('Erro ao buscar lista:', res.status); return false }
+    const data = await res.json()
+    const autorizados = (data.autorizados || []).map(e => e.toLowerCase().trim())
+    return autorizados.includes(email.toLowerCase().trim())
   } catch (e) {
     console.error('Erro verificarAcesso:', e)
     return false
@@ -476,7 +461,7 @@ export default function App() {
 
       // ── Verificar autorização na planilha ──
       setLoadingMsg('Verificando autorização de acesso…')
-      const autorizado = await verificarAcesso(userInfo.email, tk)
+      const autorizado = await verificarAcesso(userInfo.email)
       if (!autorizado) {
         setLoading(false)
         setAcessoNegado(true)
