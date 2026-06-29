@@ -725,53 +725,50 @@ function AdminPinGate({onUnlock}) {
 // ── Category Manager ─────────────────────────────────────────────────────────
 function CategoryManager({categories,inventory,onAdd,onUpdate,onDelete,onClose}) {
   const useCats = categories||DEFAULT_CATS
-  const [editing,setEditing]   = useState(null)  // cat object being edited
-  const [adding,setAdding]     = useState(false)
-  const blankCat = {key:'',label:'',icon:'🎁',...COLOR_PRESETS[0]}
-  const [form,setForm]         = useState(blankCat)
-  const setF = (k,v) => setForm(p=>({...p,[k]:v}))
-  const [saving,setSaving]     = useState(false)
-
-  const openEdit = (cat) => { setForm({...cat}); setEditing(cat); setAdding(false) }
-  const openAdd  = () => { setForm({...blankCat,key:'cat_'+Date.now()}); setEditing(null); setAdding(true) }
-  const closeForm= () => { setEditing(null); setAdding(false) }
-
-  const handleSave = async () => {
-    if(!form.label.trim()) return alert('Informe o nome da categoria.')
+  const [editing,setEditing]=useState(null)
+  const [adding,setAdding]=useState(false)
+  const blankCat={key:'',label:'',icon:'🎁',...COLOR_PRESETS[0]}
+  const [form,setForm]=useState(blankCat)
+  const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
+  const [saving,setSaving]=useState(false)
+  const openEdit=(cat)=>{setForm({...cat});setEditing(cat);setAdding(false)}
+  const openAdd=()=>{setForm({...blankCat,key:'cat_'+Date.now()});setEditing(null);setAdding(true)}
+  const closeForm=()=>{setEditing(null);setAdding(false)}
+  const handleSave=async()=>{
+    if(!form.label.trim())return alert('Informe o nome da categoria.')
     setSaving(true)
-    if(editing) await onUpdate(form)
-    else        await onAdd(form)
-    setSaving(false); closeForm()
+    if(editing)await onUpdate(form); else await onAdd(form)
+    setSaving(false);closeForm()
   }
-
-  const handleDelete = async(key) => {
-    const count = inventory.filter(i=>i.mainCategory===key).length
+  const handleDelete=async(key)=>{
+    const count=inventory.filter(i=>i.mainCategory===key).length
     if(count>0){alert(`Não é possível excluir: ${count} item(s) nesta categoria.`);return}
-    if(window.confirm('Excluir esta categoria?')) await onDelete(key)
+    if(window.confirm('Excluir esta categoria?'))await onDelete(key)
   }
-
   return(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontFamily:'serif',fontSize:20,color:'#d4a843',marginBottom:4}}>⚙️ Gerenciar Categorias</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+          <div style={{fontFamily:'serif',fontSize:20,color:'#d4a843'}}>⚙️ Gerenciar Categorias</div>
+          <button onClick={onClose} style={{background:'none',border:'1px solid #2e2b4a',borderRadius:8,color:'#6a6080',padding:'6px 12px',cursor:'pointer',fontFamily:'inherit',fontSize:12}}>✕ Fechar</button>
+        </div>
         <div style={{fontSize:12,color:'#6a6080',marginBottom:20}}>Crie, edite ou exclua categorias do acervo.</div>
-
-        {/* Category list */}
         {!editing&&!adding&&(
           <>
             <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
               {useCats.map(cat=>{
                 const count=inventory.filter(i=>i.mainCategory===cat.key).length
+                const totalQty=inventory.filter(i=>i.mainCategory===cat.key).reduce((a,i)=>a+Number(i.quantity||0),0)
                 return(
-                  <div key={cat.key} style={{display:'flex',alignItems:'center',gap:12,background:cat.bg,borderRadius:10,padding:'12px 16px',border:`1px solid ${cat.accent}30`}}>
-                    <div style={{width:36,height:36,borderRadius:8,background:'#ffffff18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{cat.icon}</div>
+                  <div key={cat.key} style={{display:'flex',alignItems:'center',gap:12,background:cat.bg,borderRadius:12,padding:'14px 16px',border:`1px solid ${cat.accent}30`}}>
+                    <div style={{width:40,height:40,borderRadius:10,background:'#ffffff18',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{cat.icon}</div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:700,color:'#fff',fontSize:14}}>{cat.label}</div>
-                      <div style={{fontSize:11,color:'#ffffff60'}}>{count} item(s) cadastrado(s)</div>
+                      <div style={{fontWeight:700,color:'#fff',fontSize:15}}>{cat.label}</div>
+                      <div style={{fontSize:11,color:'#ffffff70',marginTop:2}}>{count} tipo(s) · {totalQty} unidade(s)</div>
                     </div>
                     <div style={{display:'flex',gap:6}}>
-                      <button className="btn btn-ghost" style={{fontSize:11,padding:'4px 10px',background:'#ffffff18',border:'1px solid #ffffff25',color:'#fff'}} onClick={()=>openEdit(cat)}>✏️ Editar</button>
-                      <button className="btn btn-danger" style={{fontSize:11,padding:'4px 8px'}} onClick={()=>handleDelete(cat.key)}>🗑</button>
+                      <button style={{background:'#ffffff20',border:'1px solid #ffffff30',borderRadius:8,color:'#fff',padding:'6px 12px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600}} onClick={()=>openEdit(cat)}>✏️ Editar</button>
+                      <button className="btn btn-danger" style={{fontSize:11,padding:'6px 10px'}} onClick={()=>handleDelete(cat.key)}>🗑</button>
                     </div>
                   </div>
                 )
@@ -780,16 +777,11 @@ function CategoryManager({categories,inventory,onAdd,onUpdate,onDelete,onClose})
             <button className="btn btn-gold" style={{width:'100%',justifyContent:'center'}} onClick={openAdd}>+ Nova Categoria</button>
           </>
         )}
-
-        {/* Edit / Add form */}
         {(editing||adding)&&(
           <div>
             <div style={{fontFamily:'serif',fontSize:16,color:'#d4a843',marginBottom:14}}>{editing?'✏️ Editar Categoria':'✦ Nova Categoria'}</div>
             <div className="form-grid" style={{marginBottom:16}}>
-              <div>
-                <label>Nome da Categoria *</label>
-                <input value={form.label} onChange={e=>setF('label',e.target.value)} placeholder="Ex: Iluminação, Mobília…"/>
-              </div>
+              <div><label>Nome da Categoria *</label><input value={form.label} onChange={e=>setF('label',e.target.value)} placeholder="Ex: Iluminação, Mobília…"/></div>
               <div style={{gridColumn:'1/-1'}}>
                 <label>Ícone da Categoria</label>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
@@ -811,8 +803,7 @@ function CategoryManager({categories,inventory,onAdd,onUpdate,onDelete,onClose})
                       <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                         {emojis.map(e=>(
                           <button type="button" key={e} onClick={()=>setF('icon',e)}
-                            style={{width:36,height:36,background:form.icon===e?form.bg:'#1a1929',border:`1px solid ${form.icon===e?form.accent:'#2e2b4a'}`,borderRadius:6,fontSize:18,cursor:'pointer',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center'}}
-                            title={e}>
+                            style={{width:36,height:36,background:form.icon===e?form.bg:'#1a1929',border:`1px solid ${form.icon===e?form.accent:'#2e2b4a'}`,borderRadius:6,fontSize:18,cursor:'pointer',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center'}}>
                             {e}
                           </button>
                         ))}
@@ -834,7 +825,6 @@ function CategoryManager({categories,inventory,onAdd,onUpdate,onDelete,onClose})
                 ))}
               </div>
             </div>
-            {/* Preview */}
             <div style={{background:form.bg,borderRadius:12,padding:'16px 20px',marginBottom:20,display:'flex',alignItems:'center',gap:12,border:`1px solid ${form.accent}30`}}>
               <div style={{width:44,height:44,background:'#ffffff18',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:26}}>{form.icon}</div>
               <div>
@@ -853,254 +843,228 @@ function CategoryManager({categories,inventory,onAdd,onUpdate,onDelete,onClose})
   )
 }
 
-// ── Inventory Tab (drill-down navigation) ────────────────────────────────────
+// ── Inventory Tab ─────────────────────────────────────────────────────────────
 function InventoryTab({inventory,rentals,subcategories,categories,onAdd,onUpdate,onDelete,onAddSubcat,onDeleteSubcat,onAddCat,onUpdateCat,onDeleteCat}) {
-  const useCats = categories||DEFAULT_CATS
-  const [showCatManager,setShowCatManager] = useState(false)
-  const [viewCat,setViewCat]   = useState(null)   // null = category grid
-  const [viewSub,setViewSub]   = useState(null)   // null = sub list; '__none__' = items without sub
-  const [showForm,setShowForm] = useState(false)
-  const [editing,setEditing]   = useState(null)
-  const [saving,setSaving]     = useState(false)
-  const [subcatModal,setSubcatModal] = useState(null)
-  const [subcatName,setSubcatName]   = useState('')
-  const [search,setSearch]     = useState('')
+  const useCats=categories||DEFAULT_CATS
+  const [showCatManager,setShowCatManager]=useState(false)
+  const [viewCat,setViewCat]=useState(null)
+  const [showForm,setShowForm]=useState(false)
+  const [editing,setEditing]=useState(null)
+  const [saving,setSaving]=useState(false)
+  const [search,setSearch]=useState('')
 
-  const blank={name:'',quantity:1,rentalPrice:'',painted:false,mainCategory:'madeira',subCategory:'',notes:'',replacementCost:'',expectedUses:100}
-  const [form,setForm]=useState(blank)
+  const blankItem={name:'',mainCategory:'',rentalPrice:'',replacementCost:'',expectedUses:100,notes:'',subitems:[]}
+  const [form,setForm]=useState(blankItem)
   const set=(k,v)=>setForm(p=>({...p,[k]:v}))
 
-  const openNew=(cat='',sub='')=>{ setForm({...blank,mainCategory:cat||'madeira',subCategory:sub==='__none__'?'':sub||''}); setEditing(null); setShowForm(true) }
-  const openEdit=(it)=>{ setForm({...it}); setEditing(it); setShowForm(true) }
-  const close=()=>{ setShowForm(false); setEditing(null) }
+  const openNew=(cat='')=>{setForm({...blankItem,mainCategory:cat});setEditing(null);setShowForm(true)}
+  const openEdit=(it)=>{setForm({...it,subitems:it.subitems||[]});setEditing(it);setShowForm(true)}
+  const close=()=>{setShowForm(false);setEditing(null)}
 
   const handleSave=async()=>{
-    if(!form.name.trim())return
+    if(!form.name.trim())return alert('Preencha o nome do item.')
+    if(!form.mainCategory)return alert('Selecione uma categoria.')
     setSaving(true)
-    const item={...form,id:editing?editing.id:uid()}
+    const totalQty=(form.subitems||[]).reduce((a,s)=>a+Number(s.qty||0),0)
+    const item={...form,id:editing?editing.id:uid(),quantity:totalQty}
     editing?await onUpdate(item):await onAdd(item)
-    setSaving(false); close()
+    setSaving(false);close()
   }
-  const handleDelete=async(id)=>{ if(window.confirm('Excluir este item?'))await onDelete(id) }
-  const handleAddSubcat=async(cat)=>{
-    if(!subcatName.trim())return
-    await onAddSubcat(cat,subcatName.trim())
-    setSubcatName(''); setSubcatModal(null)
-  }
+  const handleDelete=async(id)=>{if(window.confirm('Excluir este item?'))await onDelete(id)}
 
-  const goBack=()=>{ if(viewSub!==null)setViewSub(null); else setViewCat(null); setSearch('') }
-  const selectedCat = useCats.find(c=>c.key===viewCat)
-  const totalItems  = inventory.reduce((a,i)=>a+Number(i.quantity||0),0)
+  const selectedCat=useCats.find(c=>c.key===viewCat)
+  const catItems=viewCat?inventory.filter(i=>i.mainCategory===viewCat):[]
+  const searchedItems=search?catItems.filter(i=>i.name.toLowerCase().includes(search.toLowerCase())):catItems
+  const totalItems=inventory.reduce((a,i)=>a+Number(i.quantity||0),0)
 
-  // ── LEVEL 0: Category grid ────────────────────────────────────────────────
-  if (viewCat===null) return (
+  // ── NÍVEL 0: Grade de categorias ─────────────────────────────────────────
+  if(viewCat===null) return(
     <div>
-      {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10,marginBottom:28}}>
-        {[['📦','Tipos',inventory.length],['🔢','Peças',totalItems],['🎨','Pintados',inventory.filter(i=>i.painted).length]].map(([ic,label,val])=>(
-          <div key={label} className="card" style={{textAlign:'center',padding:'10px 8px'}}>
-            <div style={{fontSize:18}}>{ic}</div>
-            <div style={{fontSize:20,fontWeight:700,color:'#d4a843',fontFamily:'serif'}}>{val}</div>
-            <div style={{fontSize:10,color:'#6a6080',marginTop:2}}>{label}</div>
+      {/* Métricas */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:20}}>
+        {[
+          ['📦','Tipos de Item',inventory.length,'#d4a843','#1a1200','#3a2a00'],
+          ['🔢','Total Peças',totalItems,'#6ea8fe','#0a1020','#1a2a60'],
+          ['🏷️','Categorias',useCats.length,'#c084fc','#1a0a3a','#3a1a6a'],
+        ].map(([ic,label,val,clr,bg,bd])=>(
+          <div key={label} style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:'14px 12px',textAlign:'center'}}>
+            <div style={{fontSize:22,marginBottom:4}}>{ic}</div>
+            <div style={{fontSize:22,fontWeight:800,color:clr,fontFamily:'serif'}}>{val}</div>
+            <div style={{fontSize:10,color:'#6a6080',marginTop:4,textTransform:'uppercase',letterSpacing:0.8}}>{label}</div>
           </div>
         ))}
       </div>
+
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:8}}>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#d4a843'}}>Selecione uma categoria para gerenciar</div>
-        <button className="btn btn-ghost" style={{fontSize:12,padding:'7px 14px'}} onClick={()=>setShowCatManager(true)}>⚙️ Gerenciar Categorias</button>
+        <div style={{fontFamily:'serif',fontSize:18,color:'#e8dfc8'}}>📦 Acervo de Materiais</div>
+        <button style={{background:'transparent',border:'1px solid #2e2b4a',borderRadius:8,color:'#9090b0',padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600}} onClick={()=>setShowCatManager(true)}>⚙️ Gerenciar Categorias</button>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:16}}>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:14}}>
         {useCats.map(cat=>{
-          const count = inventory.filter(i=>i.mainCategory===cat.key).length
-          const qty   = inventory.filter(i=>i.mainCategory===cat.key).reduce((a,i)=>a+Number(i.quantity||0),0)
+          const count=inventory.filter(i=>i.mainCategory===cat.key).length
+          const qty=inventory.filter(i=>i.mainCategory===cat.key).reduce((a,i)=>a+Number(i.quantity||0),0)
           return(
-            <div key={cat.key} onClick={()=>{setViewCat(cat.key);setViewSub(null)}}
-              style={{background:cat.bg,borderRadius:16,padding:'28px 20px',cursor:'pointer',textAlign:'center',border:`1px solid ${cat.accent}40`,transition:'all .2s',boxShadow:'0 4px 20px #00000040'}}
+            <div key={cat.key} onClick={()=>{setViewCat(cat.key);setSearch('')}}
+              style={{background:cat.bg,borderRadius:16,padding:'24px 18px',cursor:'pointer',textAlign:'center',border:`1px solid ${cat.accent}40`,transition:'all .2s',boxShadow:'0 4px 20px #00000040'}}
               onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-4px)';e.currentTarget.style.boxShadow=`0 8px 30px ${cat.accent}30`}}
               onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='0 4px 20px #00000040'}}>
-              <div style={{fontSize:44,marginBottom:10}}>{cat.icon}</div>
-              <div style={{fontSize:16,fontWeight:700,color:'#fff',letterSpacing:0.3}}>{cat.label}</div>
-              <div style={{fontSize:12,color:`${cat.accent}cc`,marginTop:6}}>{count} tipo(s) · {qty} unidade(s)</div>
+              <div style={{fontSize:40,marginBottom:8}}>{cat.icon}</div>
+              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>{cat.label}</div>
+              <div style={{fontSize:11,color:`${cat.accent}cc`,marginTop:6}}>{count} tipo(s) · {qty} unid.</div>
             </div>
           )
         })}
       </div>
-
-      {/* Category manager modal */}
       {showCatManager&&<CategoryManager categories={useCats} inventory={inventory} onAdd={onAddCat} onUpdate={onUpdateCat} onDelete={onDeleteCat} onClose={()=>setShowCatManager(false)}/>}
-
-      {/* Item form modal */}
-      {showForm&&<ItemFormModal form={form} set={set} editing={editing} saving={saving} subcategories={subcategories} categories={useCats} onSave={handleSave} onClose={close}/>}
+      {showForm&&<ItemFormModal form={form} set={set} editing={editing} saving={saving} categories={useCats} onSave={handleSave} onClose={close}/>}
     </div>
   )
 
-  const catItems  = inventory.filter(i=>i.mainCategory===viewCat)
-  const catSubs   = subcategories[viewCat]||[]
-
-  // ── LEVEL 1: Sub-categories for selected category ─────────────────────────
-  if (viewSub===null) {
-    const itemsWithoutSub = catItems.filter(i=>!i.subCategory||i.subCategory==='')
-    return(
-      <div>
-        {/* Breadcrumb */}
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-          <button className="btn btn-ghost" style={{fontSize:12,padding:'6px 12px'}} onClick={goBack}>← Categorias</button>
+  // ── NÍVEL 1: Itens da categoria ───────────────────────────────────────────
+  return(
+    <div>
+      {/* Breadcrumb + botão fechar */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,flexWrap:'wrap',gap:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button style={{background:'transparent',border:'1px solid #2e2b4a',borderRadius:8,color:'#9090b0',padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600}} onClick={()=>{setViewCat(null);setSearch('')}}>← Categorias</button>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:22}}>{selectedCat?.icon}</span>
-            <span style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#d4a843'}}>{selectedCat?.label}</span>
+            <span style={{fontFamily:'serif',fontSize:18,color:selectedCat?.accent||'#d4a843'}}>{selectedCat?.label}</span>
             <span style={{fontSize:12,color:'#6a6080'}}>· {catItems.length} tipo(s)</span>
           </div>
         </div>
-        {/* Actions */}
-        <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
-          <button className="btn btn-gold" style={{fontSize:12}} onClick={()=>openNew(viewCat,'')}>+ Item</button>
-          <button className="btn btn-ghost" style={{fontSize:12}} onClick={()=>{setSubcatModal(viewCat);setSubcatName('')}}>+ Sub-categoria</button>
-        </div>
-
-        {catSubs.length===0&&itemsWithoutSub.length===0?(
-          <div className="card" style={{textAlign:'center',padding:40,color:'#4a4060'}}>
-            <div style={{fontSize:36}}>{selectedCat?.icon}</div>
-            <div style={{marginTop:8,fontFamily:'serif',fontSize:17}}>Nenhum item em {selectedCat?.label} ainda.</div>
-            <button className="btn btn-gold" style={{marginTop:14,fontSize:12}} onClick={()=>openNew(viewCat,'')}>+ Adicionar primeiro item</button>
-          </div>
-        ):(
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:14}}>
-            {/* Sub-category cards */}
-            {catSubs.map(sub=>{
-              const subItems=catItems.filter(i=>i.subCategory===sub)
-              const subQty=subItems.reduce((a,i)=>a+Number(i.quantity||0),0)
-              return(
-                <div key={sub} onClick={()=>setViewSub(sub)}
-                  style={{background:'#16152a',border:`1px solid ${selectedCat?.accent}30`,borderRadius:14,padding:'20px 16px',cursor:'pointer',transition:'all .2s'}}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor=selectedCat?.accent;e.currentTarget.style.transform='translateY(-2px)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor=`${selectedCat?.accent}30`;e.currentTarget.style.transform='none'}}>
-                  <div style={{fontSize:28,marginBottom:8}}>📂</div>
-                  <div style={{fontWeight:700,color:'#e8dfc8',fontSize:15,marginBottom:4}}>{sub}</div>
-                  <div style={{fontSize:12,color:'#6a6080'}}>{subItems.length} item(s) · {subQty} unid.</div>
-                  <div style={{display:'flex',justifyContent:'flex-end',marginTop:10,gap:6}} onClick={e=>e.stopPropagation()}>
-                    <button className="btn btn-ghost" style={{fontSize:10,padding:'3px 8px'}} onClick={()=>openNew(viewCat,sub)}>+ Item</button>
-                    <button className="btn btn-danger" style={{fontSize:10,padding:'3px 6px'}} onClick={()=>window.confirm(`Excluir sub-categoria "${sub}"?`)&&onDeleteSubcat(viewCat,sub)}>🗑</button>
-                  </div>
-                </div>
-              )
-            })}
-            {/* "Sem sub-categoria" card */}
-            {itemsWithoutSub.length>0&&(
-              <div onClick={()=>setViewSub('__none__')}
-                style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:14,padding:'20px 16px',cursor:'pointer',transition:'all .2s'}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor='#6a6080';e.currentTarget.style.transform='translateY(-2px)'}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='#2e2b4a';e.currentTarget.style.transform='none'}}>
-                <div style={{fontSize:28,marginBottom:8}}>📋</div>
-                <div style={{fontWeight:700,color:'#8a7a9a',fontSize:15,marginBottom:4}}>Sem sub-categoria</div>
-                <div style={{fontSize:12,color:'#6a6080'}}>{itemsWithoutSub.length} item(s) · {itemsWithoutSub.reduce((a,i)=>a+Number(i.quantity||0),0)} unid.</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sub-category modal */}
-        {subcatModal&&(
-          <div className="modal-overlay" onClick={()=>setSubcatModal(null)}>
-            <div style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:16,padding:28,width:'100%',maxWidth:380}} onClick={e=>e.stopPropagation()}>
-              <div style={{fontFamily:'serif',fontSize:18,color:'#d4a843',marginBottom:16}}>+ Nova Sub-categoria em {selectedCat?.label}</div>
-              <label>Nome da Sub-categoria</label>
-              <input value={subcatName} onChange={e=>setSubcatName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleAddSubcat(subcatModal)} placeholder="Ex: Voal, Mesa Rústica…" style={{marginBottom:16}}/>
-              <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-                <button className="btn btn-ghost" onClick={()=>setSubcatModal(null)}>Cancelar</button>
-                <button className="btn btn-gold" onClick={()=>handleAddSubcat(subcatModal)}>✦ Criar</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showForm&&<ItemFormModal form={form} set={set} editing={editing} saving={saving} subcategories={subcategories} categories={useCats} onSave={handleSave} onClose={close}/>}
-      </div>
-    )
-  }
-
-  // ── LEVEL 2: Items in selected sub-category ───────────────────────────────
-  const subLabel   = viewSub==='__none__' ? 'Sem sub-categoria' : viewSub
-  const displayItems = viewSub==='__none__'
-    ? catItems.filter(i=>!i.subCategory||i.subCategory==='')
-    : catItems.filter(i=>i.subCategory===viewSub)
-  const searchedItems = search
-    ? displayItems.filter(i=>i.name.toLowerCase().includes(search.toLowerCase()))
-    : displayItems
-
-  return(
-    <div>
-      {/* Breadcrumb */}
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20,flexWrap:'wrap'}}>
-        <button className="btn btn-ghost" style={{fontSize:12,padding:'6px 12px'}} onClick={goBack}>← {selectedCat?.label}</button>
-        <span style={{color:'#6a6080'}}>›</span>
-        <span style={{color:'#d4a843',fontWeight:600}}>📂 {subLabel}</span>
-        <span style={{fontSize:12,color:'#6a6080'}}>· {displayItems.length} item(s)</span>
-      </div>
-      {/* Actions */}
-      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-        <input placeholder="🔍 Buscar item…" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:160}}/>
-        <button className="btn btn-gold" style={{fontSize:12}} onClick={()=>openNew(viewCat,viewSub)}>+ Novo Item</button>
+        <button className="btn btn-gold" style={{fontSize:12}} onClick={()=>openNew(viewCat)}>+ Novo Item</button>
       </div>
 
-      {displayItems.length===0?(
-        <div className="card" style={{textAlign:'center',padding:36,color:'#4a4060'}}>
-          <div style={{fontSize:32}}>📭</div>
-          <div style={{marginTop:8}}>Nenhum item aqui ainda.</div>
-          <button className="btn btn-gold" style={{marginTop:12,fontSize:12}} onClick={()=>openNew(viewCat,viewSub)}>+ Adicionar primeiro item</button>
+      {/* Busca */}
+      <input placeholder="🔍 Buscar item…" value={search} onChange={e=>setSearch(e.target.value)} style={{marginBottom:16}}/>
+
+      {catItems.length===0?(
+        <div style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:14,textAlign:'center',padding:40,color:'#4a4060'}}>
+          <div style={{fontSize:36,marginBottom:8}}>{selectedCat?.icon}</div>
+          <div style={{fontFamily:'serif',fontSize:17}}>Nenhum item em {selectedCat?.label} ainda.</div>
+          <button className="btn btn-gold" style={{marginTop:14,fontSize:12}} onClick={()=>openNew(viewCat)}>+ Adicionar primeiro item</button>
         </div>
       ):(
-        <div style={{display:'grid',gap:8}}>
+        <div style={{display:'grid',gap:12}}>
           {searchedItems.map(it=><ItemRow key={it.id} item={it} catAccent={selectedCat?.accent||'#d4a843'} rentals={rentals} onEdit={openEdit} onDelete={handleDelete}/>)}
         </div>
       )}
-      {showForm&&<ItemFormModal form={form} set={set} editing={editing} saving={saving} subcategories={subcategories} categories={useCats} onSave={handleSave} onClose={close}/>}
+      {showForm&&<ItemFormModal form={form} set={set} editing={editing} saving={saving} categories={useCats} onSave={handleSave} onClose={close}/>}
     </div>
   )
 }
 
-// ── Item Form Modal (shared) ──────────────────────────────────────────────────
-function ItemFormModal({form,set,editing,saving,subcategories,categories,onSave,onClose}) {
-  const useCats = categories||DEFAULT_CATS
+// ── Item Form Modal ───────────────────────────────────────────────────────────
+function ItemFormModal({form,set,editing,saving,categories,onSave,onClose}) {
+  const useCats=categories||DEFAULT_CATS
+  const [newModel,setNewModel]=useState('')
+  const [newQty,setNewQty]=useState(1)
+  const subitems=form.subitems||[]
+  const totalQty=subitems.reduce((a,s)=>a+Number(s.qty||0),0)
+
+  const addSubitem=()=>{
+    if(!newModel.trim())return
+    set('subitems',[...subitems,{id:uid(),model:newModel.trim(),qty:Number(newQty)||1}])
+    setNewModel('');setNewQty(1)
+  }
+  const removeSubitem=(id)=>set('subitems',subitems.filter(s=>s.id!==id))
+  const updateSubitem=(id,field,val)=>set('subitems',subitems.map(s=>s.id===id?{...s,[field]:field==='qty'?Number(val)||1:val}:s))
+
   return(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e=>e.stopPropagation()}>
-        <div style={{fontFamily:'serif',fontSize:20,color:'#d4a843',marginBottom:18}}>{editing?'✏️ Editar Item':'✦ Novo Item do Acervo'}</div>
-        <div className="form-grid">
-          <div style={{gridColumn:'1/-1'}}><label>Nome do Item *</label><input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Mesa Provençal…"/></div>
+      <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+          <div style={{fontFamily:'serif',fontSize:20,color:'#d4a843'}}>{editing?'✏️ Editar Item':'✦ Novo Item do Acervo'}</div>
+          <button onClick={onClose} style={{background:'none',border:'1px solid #2e2b4a',borderRadius:8,color:'#6a6080',padding:'6px 12px',cursor:'pointer',fontFamily:'inherit',fontSize:12}}>✕</button>
+        </div>
+
+        {/* Dados do item */}
+        <div className="sec-label">📦 Dados do Item</div>
+        <div className="form-grid" style={{marginBottom:16}}>
+          <div style={{gridColumn:'1/-1'}}>
+            <label>Nome do Item *</label>
+            <input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Painel Redondo 1,50"/>
+          </div>
           <div>
             <label>Categoria *</label>
             <select value={form.mainCategory} onChange={e=>set('mainCategory',e.target.value)}>
+              <option value="">Selecione…</option>
               {useCats.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
             </select>
           </div>
           <div>
-            <label>Sub-categoria (opcional)</label>
-            <select value={form.subCategory} onChange={e=>set('subCategory',e.target.value)}>
-              <option value="">— Nenhuma —</option>
-              {((subcategories||{})[form.mainCategory]||[]).map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div><label>Quantidade em Estoque</label><input type="number" min="0" value={form.quantity} onChange={e=>set('quantity',Number(e.target.value))}/></div>
-          <div>
             <label>💰 Preço de Locação (R$/un)</label>
             <input type="number" min="0" step="0.01" value={form.rentalPrice} onChange={e=>set('rentalPrice',e.target.value)} placeholder="0,00"/>
-            {(!form.rentalPrice||Number(form.rentalPrice)===0)&&<div style={{fontSize:11,color:'#f0a020',marginTop:4}}>⚠ Informe o preço para o carrinho.</div>}
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:10,paddingTop:20}}>
-            <input type="checkbox" id="cb_p2" checked={form.painted} onChange={e=>set('painted',e.target.checked)}/>
-            <label htmlFor="cb_p2" style={{margin:0,cursor:'pointer',fontSize:14,textTransform:'none',letterSpacing:0,color:'#e8dfc8'}}>🎨 Item está pintado</label>
+          <div>
+            <label>Custo de Reposição (R$)</label>
+            <input type="number" min="0" step="0.01" value={form.replacementCost} onChange={e=>set('replacementCost',e.target.value)} placeholder="0,00"/>
           </div>
-          <div style={{gridColumn:'1/-1'}}><div className="sec-label" style={{marginTop:8}}>📊 Controle de Desgaste</div></div>
-          <div><label>Custo de Reposição (R$)</label><input type="number" min="0" step="0.01" value={form.replacementCost} onChange={e=>set('replacementCost',e.target.value)} placeholder="Quanto custa repor?"/></div>
           <div>
             <label>Vida Útil (usos)</label>
             <input type="number" min="1" value={form.expectedUses} onChange={e=>set('expectedUses',Number(e.target.value))} placeholder="100"/>
-            {Number(form.replacementCost)>0&&Number(form.expectedUses)>0&&<div style={{fontSize:11,color:'#d4a843',marginTop:4}}>Custo/uso: {Number(Number(form.replacementCost)/Number(form.expectedUses)).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>}
           </div>
-          <div style={{gridColumn:'1/-1'}}><label>Observações</label><textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Cor, estado…" style={{resize:'vertical'}}/></div>
+          <div style={{gridColumn:'1/-1'}}>
+            <label>Observações</label>
+            <textarea rows={2} value={form.notes||''} onChange={e=>set('notes',e.target.value)} placeholder="Cor, estado, detalhes…" style={{resize:'vertical'}}/>
+          </div>
         </div>
-        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:18}}>
+
+        {/* Modelos/Subitens */}
+        <div className="sec-label">🎨 Modelos / Variações</div>
+        <div style={{background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:12,padding:14,marginBottom:16}}>
+          <div style={{fontSize:12,color:'#6a6080',marginBottom:12}}>
+            Adicione os modelos deste item. A quantidade total será calculada automaticamente.
+          </div>
+
+          {/* Lista de subitens */}
+          {subitems.length>0&&(
+            <div style={{marginBottom:12}}>
+              {subitems.map((s,i)=>(
+                <div key={s.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'#16152a',border:'1px solid #2e2b4a',borderRadius:8,marginBottom:6}}>
+                  <span style={{fontSize:14,color:'#6a6080',width:20,flexShrink:0}}>{i+1}.</span>
+                  <input value={s.model} onChange={e=>updateSubitem(s.id,'model',e.target.value)}
+                    style={{flex:1,background:'transparent',border:'none',outline:'none',color:'#e8dfc8',fontSize:13,padding:0}}
+                    placeholder="Nome do modelo"/>
+                  <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                    <input type="number" min="1" value={s.qty} onChange={e=>updateSubitem(s.id,'qty',e.target.value)}
+                      style={{width:56,textAlign:'center',padding:'4px 6px',fontSize:13,background:'#1e1c3a',border:'1px solid #2e2b4a',borderRadius:6,color:'#e8dfc8'}}/>
+                    <span style={{fontSize:11,color:'#4a4060'}}>un</span>
+                    <button onClick={()=>removeSubitem(s.id)} style={{background:'#2d1515',border:'1px solid #4a2222',borderRadius:6,color:'#e05c5c',padding:'4px 8px',cursor:'pointer',fontSize:12}}>✕</button>
+                  </div>
+                </div>
+              ))}
+              {/* Total */}
+              <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:8,padding:'8px 10px',background:'#1a1200',border:'1px solid #3a2a00',borderRadius:8,marginTop:4}}>
+                <span style={{fontSize:12,color:'#6a6080'}}>Total de unidades:</span>
+                <span style={{fontSize:18,fontWeight:800,color:'#d4a843'}}>{totalQty}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Adicionar novo modelo */}
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <input value={newModel} onChange={e=>setNewModel(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&addSubitem()}
+              placeholder="Nome do modelo (ex: Branca de Neve)"
+              style={{flex:1}}/>
+            <input type="number" min="1" value={newQty} onChange={e=>setNewQty(e.target.value)}
+              style={{width:64,textAlign:'center'}} placeholder="Qtd"/>
+            <button className="btn btn-gold" onClick={addSubitem} style={{whiteSpace:'nowrap',padding:'9px 14px',fontSize:12}}>+ Adicionar</button>
+          </div>
+
+          {subitems.length===0&&(
+            <div style={{textAlign:'center',padding:'14px 0 4px',fontSize:12,color:'#4a4060'}}>
+              Nenhum modelo adicionado ainda. Adicione acima.
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
           <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-gold" onClick={onSave} disabled={saving}>{saving?'Salvando…':editing?'💾 Salvar':'✦ Adicionar'}</button>
+          <button className="btn btn-gold" onClick={onSave} disabled={saving}>{saving?'Salvando…':editing?'💾 Salvar':'✦ Adicionar Item'}</button>
         </div>
       </div>
     </div>
@@ -1109,43 +1073,78 @@ function ItemFormModal({form,set,editing,saving,subcategories,categories,onSave,
 
 // ── Item Row ──────────────────────────────────────────────────────────────────
 function ItemRow({item,catAccent,rentals,onEdit,onDelete}) {
+  const [expanded,setExpanded]=useState(false)
+  const subitems=item.subitems||[]
+  const totalQty=subitems.length>0?subitems.reduce((a,s)=>a+Number(s.qty||0),0):Number(item.quantity||0)
   const useCount=rentals.filter(r=>r.status!=='cancelada'&&(r.items||[]).some(x=>x.itemId===item.id)).length
-  const rc=Number(item.replacementCost)||0, eu=Number(item.expectedUses)||100
+  const rc=Number(item.replacementCost)||0,eu=Number(item.expectedUses)||100
   const pct=rc>0?Math.min(100,Math.round((useCount/eu)*100)):null
   const barColor=pct>80?'#e05c5c':pct>50?'#f0a020':'#6ee76e'
-  const semPreco=!item.rentalPrice||Number(item.rentalPrice)===0
   return(
-    <div className="item-row">
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-          <span style={{fontWeight:600,color:'#e8dfc8',fontSize:14}}>{item.name}</span>
-          {item.painted&&<span className="tag" style={{background:'#1b3a1b',color:'#6ee76e',fontSize:10}}>🎨 Pintado</span>}
-          {semPreco
-            ?<span className="tag" style={{background:'#3a2800',color:'#f0a020',border:'1px solid #8a5500',fontSize:10}}>⚠ Sem preço</span>
-            :<span className="tag" style={{background:'#1c2a1c',color:'#a0d8a0',fontSize:10}}>💰 {Number(item.rentalPrice).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span>
-          }
-          <span className="tag" style={{background:'#1a1929',color:'#6a6080',border:'1px solid #2e2b4a',fontSize:10}}>🔄 {useCount}x usado</span>
-        </div>
-        {item.notes&&<div style={{fontSize:11,color:'#4a4060',marginTop:3,fontStyle:'italic'}}>{item.notes.slice(0,60)}{item.notes.length>60?'…':''}</div>}
-        {pct!==null&&(
-          <div style={{marginTop:5,maxWidth:220}}>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#6a6080',marginBottom:2}}><span>Desgaste</span><span>{pct}%</span></div>
-            <div className="progress-bar" style={{height:4}}><div className="progress-fill" style={{width:`${pct}%`,background:barColor}}/></div>
-            {pct>=100&&<div style={{fontSize:10,color:'#e05c5c',marginTop:2,fontWeight:700}}>⚠ Reposição necessária!</div>}
+    <div style={{background:'#16152a',border:`1px solid #2e2b4a`,borderRadius:14,overflow:'hidden',transition:'border-color .2s'}}
+      onMouseEnter={e=>e.currentTarget.style.borderColor=catAccent+'50'}
+      onMouseLeave={e=>e.currentTarget.style.borderColor='#2e2b4a'}>
+
+      {/* Header do item */}
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px'}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
+            <span style={{fontWeight:700,color:'#e8dfc8',fontSize:15}}>{item.name}</span>
+            {item.rentalPrice&&Number(item.rentalPrice)>0&&(
+              <span style={{background:'#1a1200',border:'1px solid #3a2a00',color:'#d4a843',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700}}>
+                💰 {R$(item.rentalPrice)}/un
+              </span>
+            )}
+            <span style={{background:'#0a1020',border:'1px solid #1a2a60',color:'#6ea8fe',padding:'2px 8px',borderRadius:12,fontSize:11}}>
+              🔄 {useCount}x usado
+            </span>
           </div>
-        )}
+          {item.notes&&<div style={{fontSize:11,color:'#4a4060',fontStyle:'italic'}}>{item.notes.slice(0,60)}{item.notes.length>60?'…':''}</div>}
+          {pct!==null&&(
+            <div style={{marginTop:6,maxWidth:200}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#6a6080',marginBottom:2}}><span>Desgaste</span><span>{pct}%</span></div>
+              <div className="progress-bar" style={{height:4}}><div className="progress-fill" style={{width:`${pct}%`,background:barColor}}/></div>
+            </div>
+          )}
+        </div>
+
+        {/* Total unidades */}
+        <div style={{textAlign:'center',minWidth:54,padding:'0 12px',borderLeft:'1px solid #2e2b4a'}}>
+          <div style={{fontSize:24,fontWeight:800,color:catAccent,fontFamily:'serif'}}>{totalQty}</div>
+          <div style={{fontSize:9,color:'#6a6080',textTransform:'uppercase'}}>unid.</div>
+        </div>
+
+        {/* Botões */}
+        <div style={{display:'flex',gap:5,flexShrink:0}}>
+          {subitems.length>0&&(
+            <button onClick={()=>setExpanded(p=>!p)}
+              style={{background:'#1e1c3a',border:'1px solid #2e2b4a',borderRadius:8,color:'#9090b0',padding:'6px 10px',cursor:'pointer',fontSize:12,transition:'all .2s'}}>
+              {expanded?'▲':'▼'} {subitems.length}
+            </button>
+          )}
+          <button style={{background:'#1a3060',border:'1px solid #1e3a6a',borderRadius:8,color:'#93c5fd',padding:'6px 10px',cursor:'pointer',fontSize:12}} onClick={()=>onEdit(item)}>✏️</button>
+          <button style={{background:'#2d1515',border:'1px solid #4a2222',borderRadius:8,color:'#e05c5c',padding:'6px 10px',cursor:'pointer',fontSize:12}} onClick={()=>onDelete(item.id)}>🗑</button>
+        </div>
       </div>
-      <div style={{textAlign:'center',minWidth:54,borderLeft:'1px solid #2e2b4a',paddingLeft:12}}>
-        <div style={{fontSize:22,fontWeight:800,color:catAccent,fontFamily:'serif'}}>{item.quantity}</div>
-        <div style={{fontSize:9,color:'#6a6080',textTransform:'uppercase'}}>unid.</div>
-      </div>
-      <div style={{display:'flex',gap:5,flexShrink:0}}>
-        <button className="btn btn-ghost" style={{padding:'5px 9px',fontSize:12}} onClick={()=>onEdit(item)}>✏️</button>
-        <button className="btn btn-danger" style={{padding:'5px 9px',fontSize:12}} onClick={()=>onDelete(item.id)}>🗑</button>
-      </div>
+
+      {/* Subitens expandidos */}
+      {expanded&&subitems.length>0&&(
+        <div style={{borderTop:'1px solid #2e2b4a',background:'#0f0e17',padding:'10px 16px'}}>
+          <div style={{fontSize:10,color:'#6a6080',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Modelos disponíveis</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {subitems.map(s=>(
+              <div key={s.id} style={{background:'#16152a',border:`1px solid ${catAccent}30`,borderRadius:8,padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:12,color:'#e8dfc8',fontWeight:600}}>{s.model}</span>
+                <span style={{background:catAccent+'20',color:catAccent,padding:'1px 7px',borderRadius:10,fontSize:11,fontWeight:700}}>{s.qty} un</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 
 // ── Rentals Tab ───────────────────────────────────────────────────────────────
 function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,onDelete,onStatusChange}) {
