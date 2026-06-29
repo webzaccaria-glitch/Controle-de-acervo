@@ -1153,7 +1153,7 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
   const [showForm,setShowForm]=useState(false)
   const [editingId,setEditingId]=useState(null)
   const [saving,setSaving]=useState(false)
-  const blank={tenantName:'',cpf:'',address:'',phone:'',rentalDate:'',expectedReturnDate:'',actualReturnDate:'',dailyRate:'50',amountPaid:'',exitBy:'',items:[],status:'ativa',totalOrder:0}
+  const blank={tenantName:'',cpf:'',address:'',phone:'',rentalDate:'',expectedReturnDate:'',actualReturnDate:'',dailyRate:'50',amountPaid:'',exitBy:'',notes:'',items:[],status:'ativa',totalOrder:0}
   const [form,setForm]=useState(blank)
   const [sel,setSel]=useState({itemId:'',qty:1})
   const [selCat,setSelCat]=useState('')
@@ -1200,24 +1200,126 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
     if(!date)return
     await onUpdate({...r,actualReturnDate:date,status:'concluída'})
   }
-  const statusColors={ativa:['#1b3a1b','#6ee76e'],'concluída':['#1a2a4a','#6ea8fe'],cancelada:['#3a1c1c','#e05c5c']}
+
+  // ── Métricas ──
   const totalFat=rentals.reduce((a,r)=>a+calcTotal(r.items||[]),0)
+  const totalRec=rentals.reduce((a,r)=>a+Number(r.amountPaid||0),0)
   const totalDeb=rentals.filter(r=>r.status==='ativa').reduce((a,r)=>a+calcDebito(r),0)
   const totalOv=rentals.reduce((a,r)=>a+calcOverdue(r),0)
+  const pctRec=totalFat>0?Math.min(100,Math.round((totalRec/totalFat)*100)):0
+  const today=new Date().toISOString().slice(0,10)
+  const proximosRetornos=rentals
+    .filter(r=>r.status==='ativa'&&r.expectedReturnDate&&r.expectedReturnDate>=today)
+    .sort((a,b)=>a.expectedReturnDate.localeCompare(b.expectedReturnDate))
+    .slice(0,4)
+
+  // ── Gráfico por mês ──
+  const monthlyData=()=>{
+    const now=new Date(),months=[]
+    for(let i=5;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1)
+      const label=d.toLocaleString('pt-BR',{month:'short'})
+      const total=rentals.filter(r=>{
+        if(!r.rentalDate)return false
+        const rd=new Date(r.rentalDate+'T12:00:00')
+        return rd.getMonth()===d.getMonth()&&rd.getFullYear()===d.getFullYear()
+      }).reduce((a,r)=>a+calcTotal(r.items||[]),0)
+      months.push({label,total})
+    }
+    return months
+  }
+  const months=monthlyData()
+  const maxMonth=Math.max(...months.map(m=>m.total),1)
+
   return(
     <div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12,marginBottom:24}}>
-        {[['🎪','Locações',rentals.length,'#d4a843'],['✅','Ativas',rentals.filter(r=>r.status==='ativa').length,'#6ee76e'],['💰','Faturamento',R$(totalFat),'#d4a843'],['⚠️','Em Débito',R$(totalDeb),totalDeb>0?'#e05c5c':'#6ee76e'],['⏰','Atrasos',R$(totalOv),totalOv>0?'#f0a020':'#6ee76e']].map(([ic,label,val,clr])=>(
-          <div key={label} className="card" style={{textAlign:'center',padding:'12px 8px'}}>
-            <div style={{fontSize:18}}>{ic}</div>
-            <div style={{fontSize:typeof val==='string'&&val.length>8?14:20,fontWeight:700,color:clr,fontFamily:'serif',marginTop:2}}>{val}</div>
-            <div style={{fontSize:10,color:'#6a6080',marginTop:2}}>{label}</div>
+      {/* ── CARDS MÉTRICAS ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:18}}>
+        {[
+          ['🎪','Total Locações',rentals.length,'#d4a843','#16152a','#2e2b4a'],
+          ['✅','Ativas',rentals.filter(r=>r.status==='ativa').length,'#6ee76e','#0f1a0f','#2a4a2a'],
+          ['💰','Faturado',R$(totalFat),'#d4a843','#1a1200','#3a2a00'],
+          ['✔️','Recebido',R$(totalRec),'#6ee76e','#0f1a0f','#2a4a2a'],
+          ['⚠️','Em Débito',R$(totalDeb),totalDeb>0?'#e05c5c':'#6ee76e',totalDeb>0?'#1a0a0a':'#0f1a0f',totalDeb>0?'#4a1a1a':'#2a4a2a'],
+          ['⏰','Multas',R$(totalOv),totalOv>0?'#f0a020':'#6ee76e',totalOv>0?'#1a1000':'#0f1a0f',totalOv>0?'#4a2a00':'#2a4a2a'],
+        ].map(([ic,label,val,clr,bg,bd])=>(
+          <div key={label} style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:'14px 12px',textAlign:'center'}}>
+            <div style={{fontSize:22,marginBottom:4}}>{ic}</div>
+            <div style={{fontSize:typeof val==='string'&&val.length>8?13:20,fontWeight:800,color:clr,fontFamily:'serif',lineHeight:1.2}}>{val}</div>
+            <div style={{fontSize:10,color:'#6a6080',marginTop:4,textTransform:'uppercase',letterSpacing:0.8}}>{label}</div>
           </div>
         ))}
       </div>
-      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
+
+      {/* ── BARRA PROGRESSO GERAL ── */}
+      {totalFat>0&&(
+        <div style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:14,padding:'14px 18px',marginBottom:18}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{fontSize:12,color:'#9090b0',fontWeight:600}}>📊 Progresso de Recebimento Geral</span>
+            <span style={{fontSize:13,fontWeight:800,color:'#d4a843'}}>{pctRec}% recebido</span>
+          </div>
+          <div style={{height:10,background:'#1e1c3a',borderRadius:5,overflow:'hidden',marginBottom:6}}>
+            <div style={{height:'100%',borderRadius:5,width:`${pctRec}%`,background:pctRec>=100?'#6ee76e':'linear-gradient(90deg,#d4a843,#b8860b)',transition:'width .4s'}}/>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#4a4060'}}>
+            <span>Recebido: {R$(totalRec)}</span><span>Meta: {R$(totalFat)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── GRID: Gráfico + Próximos Retornos ── */}
+      <div style={{display:'grid',gridTemplateColumns:proximosRetornos.length>0?'1fr 260px':'1fr',gap:18,marginBottom:18}}>
+
+        {/* Gráfico por mês */}
+        <div style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:14,padding:'16px 18px'}}>
+          <div style={{fontSize:11,color:'#d4a843',letterSpacing:1.5,textTransform:'uppercase',fontWeight:700,marginBottom:14}}>📅 Faturamento por Mês</div>
+          {months.map((m,i)=>{
+            const pct=maxMonth>0?Math.round((m.total/maxMonth)*100):0
+            const isLast=i===months.length-1
+            return(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                <span style={{fontSize:11,color:'#6a6080',width:28,flexShrink:0,textTransform:'capitalize'}}>{m.label}</span>
+                <div style={{flex:1,height:26,background:'#0f0e17',borderRadius:6,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${pct}%`,minWidth:pct>0?'4px':'0',borderRadius:6,background:isLast?'linear-gradient(90deg,#d4a843,#b8860b)':'linear-gradient(90deg,#3a2060,#5a30a0)',display:'flex',alignItems:'center',paddingLeft:8,transition:'width .4s'}}>
+                    {pct>20&&<span style={{fontSize:10,fontWeight:700,color:isLast?'#0f0e17':'#e8dfc8',whiteSpace:'nowrap'}}>{R$(m.total)}</span>}
+                  </div>
+                </div>
+                <span style={{fontSize:11,color:isLast?'#d4a843':'#6a6080',width:80,textAlign:'right',fontWeight:isLast?800:400}}>{R$(m.total)}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Próximos Retornos */}
+        {proximosRetornos.length>0&&(
+          <div style={{background:'#16152a',border:'1px solid #2e2b4a',borderRadius:14,padding:'16px 16px'}}>
+            <div style={{fontSize:11,color:'#d4a843',letterSpacing:1.5,textTransform:'uppercase',fontWeight:700,marginBottom:14}}>🔄 Próximos Retornos</div>
+            {proximosRetornos.map(r=>{
+              const days=Math.round((new Date(r.expectedReturnDate+'T12:00:00')-new Date(today+'T12:00:00'))/86400000)
+              const bdColor=days===0?'#8a4a00':days<=2?'#6a5000':'#2e2b4a'
+              const badgeBg=days===0?'#2a1500':days<=2?'#2a2000':'#0f1a3a'
+              const badgeClr=days===0?'#f0a020':days<=2?'#fbbf24':'#6ea8fe'
+              const dayLabel=days===0?'Hoje':days===1?'Amanhã':`${days} dias`
+              return(
+                <div key={r.id} style={{background:'#0f0e17',border:`1px solid ${bdColor}`,borderRadius:10,padding:'10px 12px',marginBottom:10}}>
+                  <div style={{fontWeight:700,color:'#e8dfc8',fontSize:13,marginBottom:4}}>{r.tenantName}</div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,color:'#6a6080'}}>{fmtDate(r.expectedReturnDate)}</span>
+                    <span style={{background:badgeBg,color:badgeClr,padding:'2px 8px',borderRadius:12,fontSize:10,fontWeight:700}}>{dayLabel}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── LISTA DE LOCAÇÕES ── */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div style={{fontFamily:'serif',fontSize:18,color:'#e8dfc8'}}>📋 Locações</div>
         <button className="btn btn-gold" onClick={openNew}>+ Nova Locação</button>
       </div>
+
       {rentals.length===0?(
         <div className="card" style={{textAlign:'center',padding:48,color:'#4a4060'}}>
           <div style={{fontSize:40}}>🎪</div>
@@ -1225,56 +1327,148 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
           <button className="btn btn-gold" style={{marginTop:16}} onClick={openNew}>+ Registrar primeira locação</button>
         </div>
       ):(
-        <div style={{display:'grid',gap:12}}>
+        <div style={{display:'grid',gap:14}}>
           {rentals.map(r=>{
-            const [sbg,sclr]=statusColors[r.status]||['#2e2b4a','#aaa']
             const rTotal=calcTotal(r.items||[]),rPago=Number(r.amountPaid||0),rDebito=Math.max(0,rTotal-rPago)
             const overdue=calcOverdue(r),overdueDays=calcOverdueDays(r),isLate=overdueDays>0&&r.status==='ativa'
+            const pctPago=rTotal>0?Math.min(100,Math.round((rPago/rTotal)*100)):0
+            const statusMap={ativa:['#0f2a1a','#6ee76e','#2a5a3a'],'concluída':['#0f1a3a','#6ea8fe','#1a3a6a'],cancelada:['#2a0f0f','#e05c5c','#5a2222']}
+            const [sbg,sclr,sbd]=statusMap[r.status]||['#1e1c3a','#9090b0','#2e2b4a']
             return(
-              <div key={r.id} className="card" style={{borderColor:isLate?'#8a4a00':rDebito>0&&r.status==='ativa'?'#5a2222':'#2e2b4a',transition:'border-color .3s'}}>
-                <div style={{display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-                  <div style={{flex:1,minWidth:220}}>
-                    <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                      <span style={{fontWeight:700,color:'#e8dfc8',fontSize:15}}>👤 {r.tenantName}</span>
-                      <span className="tag" style={{background:sbg,color:sclr}}>{r.status}</span>
-                      {isLate&&<span className="tag" style={{background:'#3a2000',color:'#f0a020',border:'1px solid #8a4a00'}}>⏰ {overdueDays}d atraso</span>}
-                    </div>
-                    <div style={{fontSize:12,color:'#8a7a9a',marginTop:5,display:'flex',flexWrap:'wrap',gap:'2px 14px'}}>
-                      <span>📍 {r.address||'—'}</span><span>📞 {r.phone||'—'}</span>{r.cpf&&<span>🪪 CPF: {r.cpf}</span>}
-                      <span>📅 Saída: {fmtDate(r.rentalDate)}</span>
-                      <span>🔄 Retorno: {fmtDate(r.expectedReturnDate)||'—'}</span>
-                      {r.actualReturnDate&&<span style={{color:'#6ee76e'}}>✅ Dev.: {fmtDate(r.actualReturnDate)}</span>}
-                    </div>
-                    <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                      {(r.items||[]).map(it=>{const inv=inventory.find(i=>i.id===it.itemId);return inv?<span key={it.itemId} className="tag" style={{background:'#1e1d35',color:'#b0a8c0'}}>{inv.name} ×{it.qty} · {R$(it.unitPrice)}</span>:null})}
-                    </div>
-                  </div>
-                  <div style={{flexShrink:0,minWidth:210}}>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:5,marginBottom:6}}>
-                      {[['Total',R$(rTotal),'#d4a843','#0f0e17','#2e2b4a'],['Pago',R$(rPago),'#6ee76e','#0f1a0f','#2e4a2e'],[rDebito>0?'Débito':'Quitado',R$(rDebito),rDebito>0?'#e05c5c':'#6ee76e',rDebito>0?'#1a0f0f':'#0f1a0f',rDebito>0?'#5a2222':'#2e4a2e']].map(([l,v,c,bg,bd])=>(
-                        <div key={l} style={{background:bg,border:`1px solid ${bd}`,borderRadius:8,padding:'5px 6px',textAlign:'center'}}>
-                          <div style={{fontSize:9,color:'#6a6080',textTransform:'uppercase'}}>{l}</div>
-                          <div style={{fontSize:12,fontWeight:700,color:c}}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {overdue>0&&<div style={{background:'#3a2000',border:'1px solid #8a4a00',borderRadius:8,padding:'5px 10px',marginBottom:6,textAlign:'center'}}><div style={{fontSize:9,color:'#8a6040',textTransform:'uppercase'}}>⏰ Atraso ({overdueDays}d)</div><div style={{fontSize:13,fontWeight:700,color:'#f0a020'}}>{R$(overdue)}</div></div>}
-                    <div style={{display:'flex',gap:5,justifyContent:'flex-end',flexWrap:'wrap'}}>
-                      <button className="btn btn-blue" style={{fontSize:11,padding:'5px 9px'}} onClick={()=>openEdit(r)}>✏️ Ajustar</button>
-                      <button className="btn btn-green" style={{fontSize:11,padding:'5px 9px'}} onClick={()=>printChecklist(r,inventory,useCats)}>🖨 Checklist</button>
-                      {r.status==='ativa'&&!r.actualReturnDate&&<button className="btn btn-orange" style={{fontSize:11,padding:'5px 9px'}} onClick={()=>handleSetReturn(r)}>📦 Devolvido</button>}
-                      <select value={r.status} onChange={e=>onStatusChange(r.id,e.target.value)} style={{width:'auto',cursor:'pointer',padding:'5px 8px',fontSize:11,borderRadius:6}}>
-                        <option value="ativa">Ativa</option><option value="concluída">Concluída</option><option value="cancelada">Cancelada</option>
-                      </select>
-                      <button className="btn btn-danger" style={{fontSize:11,padding:'5px 9px'}} onClick={()=>handleDelete(r.id)}>🗑</button>
-                    </div>
+              <div key={r.id} style={{background:'#16152a',border:`1px solid ${isLate?'#7a3a00':rDebito>0&&r.status==='ativa'?'#4a1a1a':'#2e2b4a'}`,borderRadius:16,overflow:'hidden',transition:'border-color .3s'}}>
+
+                {/* HEADER DO CARD */}
+                <div style={{background:'linear-gradient(135deg,#1e1c3a,#16152a)',padding:'16px 18px 12px',borderBottom:'1px solid #2e2b4a'}}>
+                  <div style={{fontSize:11,color:'#6a6080',letterSpacing:1,textTransform:'uppercase',marginBottom:5}}>📅 {fmtDate(r.rentalDate)}</div>
+                  <div style={{fontSize:20,fontWeight:800,color:'#ffffff',marginBottom:8}}>{r.tenantName}</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <span style={{background:sbg,color:sclr,border:`1px solid ${sbd}`,padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700}}>● {r.status}</span>
+                    {isLate&&<span style={{background:'#2a1500',color:'#f0a020',border:'1px solid #7a3a00',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700}}>⏰ {overdueDays}d atraso</span>}
+                    {r.address&&<span style={{background:'#1e1c3a',color:'#9090b0',border:'1px solid #2e2b4a',padding:'3px 10px',borderRadius:20,fontSize:11}}>📍 {r.address}</span>}
+                    {r.cpf&&<span style={{background:'#1e1c3a',color:'#9090b0',border:'1px solid #2e2b4a',padding:'3px 10px',borderRadius:20,fontSize:11}}>🪪 {r.cpf}</span>}
+                    {r.phone&&<span style={{background:'#1e1c3a',color:'#9090b0',border:'1px solid #2e2b4a',padding:'3px 10px',borderRadius:20,fontSize:11}}>📞 {r.phone}</span>}
                   </div>
                 </div>
+
+                {/* BOTÕES DE AÇÃO */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',borderBottom:'1px solid #2e2b4a'}}>
+                  {[
+                    ['💬','WhatsApp',`https://wa.me/55${(r.phone||'').replace(/\D/g,'')}`,'#25d366'],
+                    ['🔔','Lembrete',null,'#f0a020'],
+                    ['📄','Contrato',null,'#6ea8fe'],
+                  ].map(([ic,label,href,clr],i)=>(
+                    <button key={label} onClick={()=>{
+                      if(label==='Contrato')printChecklist(r,inventory,useCats)
+                      else if(href&&r.phone)window.open(href,'_blank')
+                    }}
+                      style={{display:'flex',flexDirection:'column',alignItems:'center',gap:5,padding:'13px 8px',background:'transparent',border:'none',borderRight:i<2?'1px solid #2e2b4a':'none',cursor:'pointer',transition:'background .15s',fontFamily:'inherit'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#1e1c3a'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <span style={{fontSize:20}}>{ic}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:'#8a7a9a'}}>{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* BODY */}
+                <div style={{padding:'16px 18px'}}>
+
+                  {/* Datas */}
+                  <div style={{display:'grid',gridTemplateColumns:r.actualReturnDate?'1fr 1fr 1fr':'1fr 1fr',gap:8,marginBottom:14}}>
+                    <div style={{background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:8,padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:9,color:'#4a4060',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>📦 Saída</div>
+                      <div style={{fontSize:13,fontWeight:700,color:'#e8dfc8'}}>{fmtDate(r.rentalDate)}</div>
+                    </div>
+                    <div style={{background:'#0f0e17',border:`1px solid ${isLate?'#7a3a00':'#2e2b4a'}`,borderRadius:8,padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:9,color:'#4a4060',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>🔄 Retorno Previsto</div>
+                      <div style={{fontSize:13,fontWeight:700,color:isLate?'#f0a020':'#e8dfc8'}}>{fmtDate(r.expectedReturnDate)}</div>
+                    </div>
+                    {r.actualReturnDate&&(
+                      <div style={{background:'#0f1a0f',border:'1px solid #2a4a2a',borderRadius:8,padding:'8px 12px',textAlign:'center'}}>
+                        <div style={{fontSize:9,color:'#4a4060',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>✅ Devolvido</div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#6ee76e'}}>{fmtDate(r.actualReturnDate)}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* FINANCEIRO */}
+                  <div style={{fontSize:10,color:'#d4a843',letterSpacing:1.5,textTransform:'uppercase',fontWeight:700,marginBottom:10}}>💰 Financeiro</div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:8}}>
+                    <div><div style={{fontSize:10,color:'#6a6080',textTransform:'uppercase',marginBottom:3}}>Valor do Contrato</div><div style={{fontSize:20,fontWeight:800,color:'#d4a843'}}>{R$(rTotal)}</div></div>
+                    <div style={{textAlign:'right'}}><div style={{fontSize:10,color:'#6a6080',textTransform:'uppercase',marginBottom:3}}>Já Recebido</div><div style={{fontSize:20,fontWeight:800,color:'#6ee76e'}}>{R$(rPago)}</div></div>
+                  </div>
+                  <div style={{height:8,background:'#1e1c3a',borderRadius:4,overflow:'hidden',marginBottom:6}}>
+                    <div style={{height:'100%',borderRadius:4,width:`${pctPago}%`,background:pctPago>=100?'#6ee76e':'linear-gradient(90deg,#d4a843,#b8860b)',transition:'width .4s'}}/>
+                  </div>
+                  <div style={{background:rDebito>0?'#1a0a0a':'#0f1a0f',border:`1px solid ${rDebito>0?'#4a1a1a':'#2a4a2a'}`,borderRadius:8,padding:'9px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:rDebito>0||overdue>0?10:0}}>
+                    <span style={{fontSize:11,color:'#8a7a9a'}}>A Receber</span>
+                    <span style={{fontSize:15,fontWeight:800,color:rDebito>0?'#e05c5c':'#6ee76e'}}>{R$(rDebito)}</span>
+                  </div>
+                  {overdue>0&&(
+                    <div style={{background:'#2a1500',border:'1px solid #7a3a00',borderRadius:8,padding:'9px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                      <span style={{fontSize:11,color:'#f0a020'}}>⏰ Multa por atraso ({overdueDays}d × {R$(r.dailyRate||50)})</span>
+                      <span style={{fontSize:14,fontWeight:800,color:'#f0a020'}}>{R$(overdue)}</span>
+                    </div>
+                  )}
+
+                  {/* ACERVO */}
+                  {(r.items||[]).length>0&&(
+                    <>
+                      <div style={{height:1,background:'#2e2b4a',margin:'14px 0 12px'}}/>
+                      <div style={{fontSize:10,color:'#8a7a9a',letterSpacing:1.5,textTransform:'uppercase',fontWeight:700,marginBottom:8}}>📦 Acervo Utilizado</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {(r.items||[]).map(it=>{const inv=inventory.find(i=>i.id===it.itemId);return inv?<span key={it.itemId} style={{background:'#1e1c3a',border:'1px solid #2e2b4a',borderRadius:20,padding:'4px 10px',fontSize:11,color:'#b0a8c0'}}>{inv.name} ×{it.qty}</span>:null})}
+                      </div>
+                    </>
+                  )}
+
+                  {/* ANOTAÇÕES */}
+                  {r.notes&&(
+                    <>
+                      <div style={{height:1,background:'#2e2b4a',margin:'14px 0 12px'}}/>
+                      <div style={{fontSize:10,color:'#8a7a9a',letterSpacing:1.5,textTransform:'uppercase',fontWeight:700,marginBottom:8}}>📝 Anotações</div>
+                      <div style={{background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:8,padding:'10px 14px',fontSize:12,color:'#6a6080',fontStyle:'italic'}}>{r.notes}</div>
+                    </>
+                  )}
+                </div>
+
+                {/* FOOTER */}
+                <div style={{padding:'14px 18px',borderTop:'1px solid #2e2b4a',display:'flex',flexDirection:'column',gap:10}}>
+                  {r.status==='ativa'&&!r.actualReturnDate&&(
+                    <button onClick={()=>handleSetReturn(r)} style={{width:'100%',padding:'12px',background:'linear-gradient(135deg,#7a3a00,#5a2a00)',border:'1px solid #8a4a00',borderRadius:10,color:'#ffb366',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                      📦 Marcar como Devolvido
+                    </button>
+                  )}
+                  {r.status==='ativa'&&(
+                    <button onClick={()=>onStatusChange(r.id,'concluída')} style={{width:'100%',padding:'12px',background:'linear-gradient(135deg,#1a3a1a,#0f2a0f)',border:'1px solid #2a5a2a',borderRadius:10,color:'#6ee76e',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                      ✅ Marcar como Finalizado
+                    </button>
+                  )}
+                  <select value={r.status} onChange={e=>onStatusChange(r.id,e.target.value)} style={{width:'100%',cursor:'pointer',padding:'10px 14px',fontSize:13,borderRadius:10,background:'#1e1c3a',border:'1px solid #2e2b4a',color:'#b0a8c0'}}>
+                    <option value="ativa">● Ativa</option>
+                    <option value="concluída">✓ Concluída</option>
+                    <option value="cancelada">✕ Cancelada</option>
+                  </select>
+                  <button onClick={()=>printChecklist(r,inventory,useCats)} style={{width:'100%',padding:'10px',background:'transparent',border:'1px solid #2e2b4a',borderRadius:10,color:'#8a7a9a',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    🖨 Imprimir Checklist
+                  </button>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                    <button onClick={()=>openEdit(r)} style={{padding:'11px',background:'linear-gradient(135deg,#d4a843,#b8860b)',border:'none',borderRadius:10,color:'#0f0e17',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                      ✏️ Editar
+                    </button>
+                    <button onClick={()=>handleDelete(r.id)} style={{padding:'11px',background:'#2d1515',border:'1px solid #5a2222',borderRadius:10,color:'#e05c5c',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                      🗑 Excluir
+                    </button>
+                  </div>
+                </div>
+
               </div>
             )
           })}
         </div>
       )}
+
+      {/* ── MODAL FORM ── */}
       {showForm&&(
         <div className="modal-overlay" onClick={close}>
           <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
@@ -1305,14 +1499,9 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
             </div>
             {inventory.length===0?<div style={{background:'#1a1929',border:'1px solid #2e2b4a',borderRadius:8,padding:14,color:'#6a6080',fontSize:13,marginBottom:12}}>⚠ Nenhum item no acervo.</div>:(()=>{
               const catSubs=(subcategories&&selCat)?subcategories[selCat]||[]:[]
-              const filteredItems=selCat?inventory.filter(i=>{
-                if(i.mainCategory!==selCat)return false
-                if(selSub)return(i.subCategory||'')===selSub
-                return true
-              }):[]
+              const filteredItems=selCat?inventory.filter(i=>{if(i.mainCategory!==selCat)return false;if(selSub)return(i.subCategory||'')===selSub;return true}):[]
               return(
                 <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
-                  {/* Linha 1: Categoria + Sub-categoria */}
                   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                     <select value={selCat} onChange={e=>{setSelCat(e.target.value);setSelSub('');setSel(p=>({...p,itemId:''}))}} style={{flex:1,minWidth:160}}>
                       <option value="">1. Selecione a categoria</option>
@@ -1325,15 +1514,11 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
                       </select>
                     )}
                   </div>
-                  {/* Linha 2: Item + Qtd + Adicionar */}
                   {selCat&&(
                     <div style={{display:'flex',gap:8}}>
                       <select value={sel.itemId} onChange={e=>setSel(p=>({...p,itemId:e.target.value}))} style={{flex:1}}>
                         <option value="">{catSubs.length>0?'3.':'2.'} Selecione o item</option>
-                        {filteredItems.length===0
-                          ?<option disabled>Nenhum item nesta seleção</option>
-                          :filteredItems.map(i=><option key={i.id} value={i.id}>{i.name} — {i.quantity} disp.{i.rentalPrice?` — ${R$(i.rentalPrice)}/un`:''}</option>)
-                        }
+                        {filteredItems.length===0?<option disabled>Nenhum item nesta seleção</option>:filteredItems.map(i=><option key={i.id} value={i.id}>{i.name} — {i.quantity} disp.{i.rentalPrice?` — ${R$(i.rentalPrice)}/un`:''}</option>)}
                       </select>
                       <input type="number" min="1" value={sel.qty} onChange={e=>setSel(p=>({...p,qty:e.target.value}))} style={{width:64}}/>
                       <button className="btn btn-gold" onClick={addItem} style={{whiteSpace:'nowrap',padding:'8px 14px'}} disabled={!sel.itemId}>+ Add</button>
@@ -1342,7 +1527,7 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
                 </div>
               )
             })()}
-                {form.items.length>0&&(
+            {form.items.length>0&&(
               <div style={{background:'#0f0e17',border:'1px solid #2e2b4a',borderRadius:10,overflow:'hidden',marginBottom:4}}>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 60px 100px 90px 32px',padding:'6px 12px',background:'#1a1929',fontSize:10,color:'#6a6080',textTransform:'uppercase'}}>
                   <span>Item</span><span style={{textAlign:'center'}}>Qtd</span><span style={{textAlign:'right'}}>Vl. Unit.</span><span style={{textAlign:'right'}}>Subtotal</span><span></span>
@@ -1353,10 +1538,7 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
                   const catInfo=useCats.find(c=>c.key===inv?.mainCategory)||{icon:'',label:inv?.mainCategory||''}
                   return(
                     <div key={it.itemId} style={{display:'grid',gridTemplateColumns:'1fr 60px 100px 90px 32px',alignItems:'center',padding:'7px 12px',borderTop:'1px solid #1e1d35'}}>
-                      <div>
-                        <div style={{color:'#e8dfc8',fontSize:13,fontWeight:600}}>{inv?inv.name:'?'}</div>
-                        <div style={{fontSize:10,color:'#6a6080'}}>{catInfo.icon} {catInfo.label}{diverge&&<span style={{color:'#f0a020'}}> ⚠ diverge</span>}</div>
-                      </div>
+                      <div><div style={{color:'#e8dfc8',fontSize:13,fontWeight:600}}>{inv?inv.name:'?'}</div><div style={{fontSize:10,color:'#6a6080'}}>{catInfo.icon} {catInfo.label}{diverge&&<span style={{color:'#f0a020'}}> ⚠ diverge</span>}</div></div>
                       <div><input type="number" min="1" value={it.qty} onChange={e=>updateCartItem(it.itemId,'qty',e.target.value)} style={{width:50,textAlign:'center',padding:'4px',fontSize:13}}/></div>
                       <div><input type="number" min="0" step="0.01" value={it.unitPrice} onChange={e=>updateCartItem(it.itemId,'unitPrice',e.target.value)} style={{width:90,textAlign:'right',padding:'4px 6px',fontSize:13}}/></div>
                       <div style={{textAlign:'right',color:'#d4a843',fontWeight:700,fontSize:14}}>{R$(sub)}</div>
@@ -1380,17 +1562,9 @@ function RentalsTab({rentals,inventory,subcategories,categories,onAdd,onUpdate,o
                 </div>
               </div>
             </div>
-            {formTotal>0&&(
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:10}}>
-                {[['TOTAL',R$(formTotal),'#d4a843','#0f0e17','#2e2b4a'],['PAGO',R$(formPaid),'#6ee76e','#0f1a0f','#2e4a2e'],['DÉBITO',R$(formDebito),formDebito>0?'#e05c5c':'#6ee76e',formDebito>0?'#1a0f0f':'#0f1a0f',formDebito>0?'#5a2222':'#2e4a2e']].map(([l,v,c,bg,bd])=>(
-                  <div key={l} style={{background:bg,border:`1px solid ${bd}`,borderRadius:8,padding:'8px 10px',textAlign:'center'}}>
-                    <div style={{fontSize:10,color:'#6a6080'}}>{l}</div>
-                    <div style={{fontWeight:700,color:c,fontSize:15}}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{background:'#1b0d0d',border:'1px solid #5a2222',borderRadius:8,padding:'9px 14px',marginTop:16,marginBottom:20}}>
+            <div className="sec-label">📝 Anotações</div>
+            <textarea value={form.notes||''} onChange={e=>setF('notes',e.target.value)} rows={3} placeholder="Observações, combinados, detalhes do pedido, cores, temas..." style={{marginBottom:4}}/>
+            <div style={{background:'#1b0d0d',border:'1px solid #5a2222',borderRadius:8,padding:'9px 14px',marginTop:12,marginBottom:20}}>
               <div style={{color:'#e05c5c',fontSize:11,fontWeight:700}}>⚠ Incluído automaticamente no checklist:</div>
               <div style={{color:'#c0a0a0',fontSize:11,marginTop:3}}>Multa de 100% por avaria · Taxa de {R$(form.dailyRate||50)}/dia por atraso.</div>
             </div>
