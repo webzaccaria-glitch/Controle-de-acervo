@@ -5,7 +5,7 @@ const GOOGLE_CLIENT_ID = '239442392621-adsev5o9nhsd7u0g652s2tagirlvlddb.apps.goo
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets.readonly'
 const FOLDER_NAME = 'Acervo de Festas'
 const SESSION_KEY = 'acervo_session_v2'
-
+const SHEETS_ID = '1Q9Q60JEaWSNxGlcmE8doA724Cxc0Jl90nvRH-kXbYeU'
 
 // ── Verificação de Acesso via Google Sheets ───────────────────────────────────
 const verificarAcesso = async (email, token) => {
