@@ -13,10 +13,14 @@ const verificarAcesso = async (email) => {
     const url = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=P%C3%A1gina1`
     const res = await fetch(url)
     const text = await res.text()
-    const lines = text.split('\n').slice(1)
-    for (const line of lines) {
-      const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
-      if (cols[0] === email.toLowerCase()) return cols[3] === 'ativo'
+    const lines = text.split('\n').filter(l => l.trim())
+    if (lines.length < 2) return false
+    const headers = lines[0].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
+    const iEmail = headers.indexOf('email')
+    const iStatus = headers.indexOf('status')
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim().toLowerCase())
+      if (cols[iEmail] === email.toLowerCase()) return cols[iStatus] === 'ativo'
     }
     return false
   } catch (e) {
